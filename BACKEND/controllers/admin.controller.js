@@ -1,8 +1,9 @@
-const jwt = require('jsonwebtoken');
-const Admin = require('../models/Admin.model');
-const Document = require('../models/Document.model');
-const Download = require('../models/Download.model');
-const Category = require('../models/Category.model');
+const jwt       = require('jsonwebtoken');
+const Admin     = require('../models/Admin.model');
+const Document  = require('../models/Document.model');
+const Download  = require('../models/Download.model');
+const Category  = require('../models/Category.model');
+const cloudinary = require('../config/cloudinary');
 
 // Generate JWT
 const generateToken = (id) =>
@@ -198,7 +199,7 @@ const rejectDocument = async (req, res, next) => {
   }
 };
 
-// @desc    Delete a document
+// @desc    Delete a document (also removes from Cloudinary)
 // @route   DELETE /api/admin/documents/:id
 // @access  Private
 const deleteDocument = async (req, res, next) => {
@@ -209,7 +210,15 @@ const deleteDocument = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Document not found' });
     }
 
-    // Optionally delete associated download records
+    // Delete from Cloudinary if we have the public_id
+    if (document.cloudinaryId) {
+      try {
+        await cloudinary.uploader.destroy(document.cloudinaryId, { resource_type: 'raw' });
+      } catch (err) {
+        console.warn('[Cloudinary] Could not delete asset:', document.cloudinaryId, err.message);
+      }
+    }
+
     await Download.deleteMany({ documentId: req.params.id });
 
     res.json({ success: true, message: 'Document deleted' });
@@ -241,13 +250,13 @@ const editDocument = async (req, res, next) => {
   }
 };
 
-// @desc    Admin directly uploads a document (auto-approved)
+// @desc    Admin directly uploads a document (auto-approved) — stored on Cloudinary
 // @route   POST /api/admin/documents/upload
 // @access  Private
 const adminUploadDocument = async (req, res, next) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'Please upload a file' });
+      return res.status(400).json({ success: false, message: 'Please upload a PDF file' });
     }
 
     const { title, description, subject, category, year } = req.body;
@@ -259,20 +268,24 @@ const adminUploadDocument = async (req, res, next) => {
       });
     }
 
-    const path = require('path');
-    const ext = path.extname(req.file.originalname).replace('.', '').toLowerCase();
-    const fileType = ext === 'pdf' ? 'pdf' : 'docx';
+    // Upload buffer → Cloudinary
+    const { uploadToCloudinary } = require('../config/multer');
+    const { url, publicId } = await uploadToCloudinary(
+      req.file.buffer,
+      req.file.originalname
+    );
 
     const document = await Document.create({
       title,
-      description: description || '',
+      description:   description || '',
       subject,
       category,
-      year: Number(year),
-      fileUrl: `/uploads/${req.file.filename}`,
-      fileType,
+      year:          Number(year),
+      fileUrl:       url,
+      cloudinaryId:  publicId,
+      fileType:      'pdf',
       contributorName: req.admin.name,
-      status: 'approved', // admin uploads go live immediately
+      status:        'approved',
     });
 
     const populated = await document.populate('category', 'name');

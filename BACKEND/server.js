@@ -22,12 +22,7 @@ app.use(cors({
   credentials: true,
 }));
 
-// Serve static files with CORS headers so the browser can load PDFs cross-origin
-app.use('/uploads', (req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  next();
-}, express.static(path.join(__dirname, 'uploads')));
+// Files are now stored on Cloudinary — no local /uploads static serving needed
 
 // API Routes
 app.use('/api/admin', require('./routes/admin.routes'));

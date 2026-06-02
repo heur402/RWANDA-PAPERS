@@ -15,7 +15,7 @@ const {
   getAdminProfile,
 } = require('../controllers/admin.controller');
 const { protect } = require('../middleware/auth.middleware');
-const upload = require('../config/multer');
+const { upload } = require('../config/multer');
 
 // Public
 router.post('/login', loginAdmin);

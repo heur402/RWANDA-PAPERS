@@ -1,13 +1,13 @@
 const Document = require('../models/Document.model');
-const path = require('path');
+const { uploadToCloudinary } = require('../config/multer');
 
-// @desc    Public upload (visitor submission)
+// @desc    Public upload (visitor submission) — file stored on Cloudinary
 // @route   POST /api/uploads
 // @access  Public
 const submitDocument = async (req, res, next) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'Please upload a file' });
+      return res.status(400).json({ success: false, message: 'Please upload a PDF file' });
     }
 
     const { title, description, subject, category, year, contributorName } = req.body;
@@ -19,19 +19,23 @@ const submitDocument = async (req, res, next) => {
       });
     }
 
-    const ext = path.extname(req.file.originalname).replace('.', '').toLowerCase();
-    const fileType = ext === 'pdf' ? 'pdf' : 'docx';
+    // Upload buffer → Cloudinary
+    const { url, publicId } = await uploadToCloudinary(
+      req.file.buffer,
+      req.file.originalname
+    );
 
     const document = await Document.create({
       title,
-      description: description || '',
+      description:    description || '',
       subject,
       category,
-      year: Number(year),
-      fileUrl: `/uploads/${req.file.filename}`,
-      fileType,
+      year:           Number(year),
+      fileUrl:        url,       // Cloudinary HTTPS URL
+      cloudinaryId:   publicId,  // for future deletion
+      fileType:       'pdf',
       contributorName: contributorName || 'Anonymous',
-      status: 'pending',
+      status:         'pending',
     });
 
     res.status(201).json({

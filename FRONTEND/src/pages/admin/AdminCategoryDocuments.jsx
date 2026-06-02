@@ -207,7 +207,7 @@ const AdminCategoryDocuments = () => {
                   <tr key={doc._id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
                       <a
-                        href={doc.fileUrl}
+                        href={`/api/documents/${doc._id}/preview`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="group inline-flex items-center gap-1.5 font-medium text-gray-900 hover:text-primary-600 transition-colors"

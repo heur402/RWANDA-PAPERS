@@ -32,6 +32,10 @@ const documentSchema = new mongoose.Schema(
       type: String,
       required: [true, 'File URL is required'],
     },
+    cloudinaryId: {
+      type: String,
+      default: '',
+    },
     fileType: {
       type: String,
       enum: ['pdf', 'docx'],
