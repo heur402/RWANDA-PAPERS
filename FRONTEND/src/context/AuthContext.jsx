@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { loginAdmin as loginAdminAPI } from '../api/admin.js'
+import { loginAdmin as loginAdminAPI, signupAdmin as signupAdminAPI } from '../api/admin.js'
 
 const AuthContext = createContext()
 
@@ -28,6 +28,14 @@ export const AuthProvider = ({ children }) => {
     return data
   }
 
+  const signup = async (name, email, password) => {
+    const { data } = await signupAdminAPI({ name, email, password })
+    localStorage.setItem('rp_token', data.token)
+    localStorage.setItem('rp_admin', JSON.stringify(data.admin))
+    setAdmin(data.admin)
+    return data
+  }
+
   const logout = () => {
     localStorage.removeItem('rp_token')
     localStorage.removeItem('rp_admin')
@@ -35,7 +43,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ admin, loading, login, logout, isAuthenticated: !!admin }}>
+    <AuthContext.Provider value={{ admin, loading, login, signup, logout, isAuthenticated: !!admin }}>
       {children}
     </AuthContext.Provider>
   )

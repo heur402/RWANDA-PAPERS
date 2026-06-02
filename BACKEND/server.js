@@ -18,7 +18,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Enable CORS
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: ['http://localhost:3000', 'http://localhost:5173'],
   credentials: true,
 }));
 
@@ -46,6 +46,10 @@ app.use(require('./middleware/error.middleware'));
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+const server = app.listen(PORT, () => {
+  console.log(`✅ Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+});
+
+server.on('error', (err) => {
+  console.error('❌ Server error:', err.message);
 });

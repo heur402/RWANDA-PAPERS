@@ -19,7 +19,6 @@ const Navbar = () => {
   const navLinks = [
     { to: '/', label: 'Home', end: true },
     { to: '/documents', label: 'Documents' },
-    { to: '/upload', label: 'Upload' },
   ]
 
   return (

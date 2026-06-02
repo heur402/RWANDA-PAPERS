@@ -55,11 +55,19 @@ const UploadPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+
+    // Client-side guard — category comes from dropdown selection, not direct input
+    if (!form.category) {
+      setError('Please select a category from the dropdown.')
+      return
+    }
     if (!file) return setFileError('Please select a file to upload.')
 
     const formData = new FormData()
-    Object.entries(form).forEach(([key, val]) => {
-      if (val) formData.append(key, val)
+    // Only append the real fields — exclude categorySearch (UI-only state)
+    const fieldsToSend = ['title', 'description', 'subject', 'category', 'year', 'contributorName']
+    fieldsToSend.forEach((key) => {
+      if (form[key]) formData.append(key, form[key])
     })
     formData.append('file', file)
 
@@ -149,14 +157,52 @@ const UploadPage = () => {
                 placeholder="e.g. Mathematics" className="input"
               />
             </div>
-            <div>
+            <div className="relative">
               <label className="label" htmlFor="category">Category *</label>
-              <select id="category" name="category" required value={form.category} onChange={handleChange} className="input">
-                <option value="">Select category</option>
-                {categories.map((cat) => (
-                  <option key={cat._id} value={cat._id}>{cat.name}</option>
-                ))}
-              </select>
+              <input
+                id="category"
+                name="categorySearch"
+                type="text"
+                placeholder="Search or select category..."
+                value={form.categorySearch || ''}
+                onChange={(e) =>
+                  setForm({ ...form, categorySearch: e.target.value, category: '' })
+                }
+                className={`input ${!form.category && form.categorySearch ? 'border-yellow-400' : ''}`}
+                autoComplete="off"
+                required={false}
+              />
+              {/* Selected indicator */}
+              {form.category && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-green-600 font-medium">
+                  ✓
+                </span>
+              )}
+              {/* Dropdown list */}
+              {form.categorySearch && !form.category && (
+                <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                  {categories
+                    .filter((cat) =>
+                      cat.name.toLowerCase().includes(form.categorySearch.toLowerCase())
+                    )
+                    .map((cat) => (
+                      <div
+                        key={cat._id}
+                        className="px-4 py-2.5 cursor-pointer hover:bg-primary-50 text-sm text-gray-700 hover:text-primary-700"
+                        onClick={() =>
+                          setForm({ ...form, category: cat._id, categorySearch: cat.name })
+                        }
+                      >
+                        {cat.name}
+                      </div>
+                    ))}
+                  {categories.filter((cat) =>
+                    cat.name.toLowerCase().includes(form.categorySearch.toLowerCase())
+                  ).length === 0 && (
+                    <p className="px-4 py-3 text-sm text-gray-400">No categories found</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

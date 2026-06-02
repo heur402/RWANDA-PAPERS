@@ -10,6 +10,44 @@ const generateToken = (id) =>
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   });
 
+// @desc    Register a new admin
+// @route   POST /api/admin/signup
+// @access  Public (first admin) — Protected for subsequent admins
+const signupAdmin = async (req, res, next) => {
+  try {
+    const { name, email, password, role } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ success: false, message: 'Name, email and password are required' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
+
+    const existing = await Admin.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'An account with this email already exists' });
+    }
+
+    const admin = await Admin.create({
+      name,
+      email,
+      password,
+      role: role === 'superadmin' ? 'superadmin' : 'admin',
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Admin account created successfully',
+      token: generateToken(admin._id),
+      admin: { id: admin._id, name: admin.name, email: admin.email, role: admin.role },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Login admin
 // @route   POST /api/admin/login
 // @access  Public
@@ -215,6 +253,7 @@ const getAdminProfile = async (req, res, next) => {
 };
 
 module.exports = {
+  signupAdmin,
   loginAdmin,
   getDashboardStats,
   getAdminDocuments,

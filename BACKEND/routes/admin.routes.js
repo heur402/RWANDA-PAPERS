@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const {
+  signupAdmin,
   loginAdmin,
   getDashboardStats,
   getAdminDocuments,
@@ -14,6 +15,7 @@ const { protect } = require('../middleware/auth.middleware');
 
 // Public
 router.post('/login', loginAdmin);
+router.post('/signup', signupAdmin);
 
 // Protected
 router.get('/me', protect, getAdminProfile);

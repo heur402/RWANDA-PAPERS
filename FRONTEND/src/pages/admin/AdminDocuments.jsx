@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
-import { Check, X, Trash2, Edit, Search, FileText } from 'lucide-react'
+import { Check, X, Trash2, Edit, Search, FileText, ExternalLink } from 'lucide-react'
 import {
   getAdminDocuments, approveDocument, rejectDocument, deleteDocument, editDocument,
 } from '../../api/admin.js'
@@ -208,8 +208,18 @@ const AdminDocuments = () => {
                 {documents.map((doc) => (
                   <tr key={doc._id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
-                      <p className="font-medium text-gray-900 line-clamp-1">{doc.title}</p>
-                      <p className="text-xs text-gray-500">{doc.subject} · {doc.contributorName}</p>
+                      {/* Title — clicks open the file in a new tab */}
+                      <a
+                        href={`http://localhost:5000${doc.fileUrl}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group inline-flex items-center gap-1.5 font-medium text-gray-900 hover:text-primary-600 transition-colors line-clamp-1"
+                        title="Open file in new tab"
+                      >
+                        <span className="line-clamp-1">{doc.title}</span>
+                        <ExternalLink className="w-3.5 h-3.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </a>
+                      <p className="text-xs text-gray-500 mt-0.5">{doc.subject} · {doc.contributorName}</p>
                     </td>
                     <td className="px-4 py-4 hidden md:table-cell text-gray-600">{doc.category?.name || '-'}</td>
                     <td className="px-4 py-4 hidden lg:table-cell text-gray-600">{doc.year}</td>
