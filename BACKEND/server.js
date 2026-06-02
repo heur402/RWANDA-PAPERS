@@ -22,8 +22,12 @@ app.use(cors({
   credentials: true,
 }));
 
-// Serve static files (uploaded documents)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Serve static files with CORS headers so the browser can load PDFs cross-origin
+app.use('/uploads', (req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+}, express.static(path.join(__dirname, 'uploads')));
 
 // API Routes
 app.use('/api/admin', require('./routes/admin.routes'));

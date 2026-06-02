@@ -65,6 +65,50 @@ const getDocument = async (req, res, next) => {
   }
 };
 
+// @desc    Preview a document (stream for in-browser display, no IDM interception)
+// @route   GET /api/documents/:id/preview
+// @access  Public
+const previewDocument = async (req, res, next) => {
+  try {
+    const document = await Document.findOne({
+      _id: req.params.id,
+      status: 'approved',
+    });
+
+    if (!document) {
+      return res.status(404).json({ success: false, message: 'Document not found' });
+    }
+
+    const filePath = path.join(__dirname, '../uploads', path.basename(document.fileUrl));
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, message: 'File not found on server' });
+    }
+
+    const stat = fs.statSync(filePath);
+    const isPdf = document.fileType === 'pdf';
+
+    const contentType = isPdf
+      ? 'application/pdf'
+      : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+    // These headers tell IDM and browsers this is inline content, not a download
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', stat.size);
+    res.setHeader('Content-Disposition', 'inline');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.setHeader('X-Download-Options', 'noopen');
+    res.setHeader('Accept-Ranges', 'none');
+
+    const stream = fs.createReadStream(filePath);
+    stream.pipe(res);
+    stream.on('error', next);
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Download a document (track + serve)
 // @route   GET /api/documents/:id/download
 // @access  Public
@@ -136,6 +180,7 @@ const getLatestDocuments = async (req, res, next) => {
 module.exports = {
   getDocuments,
   getDocument,
+  previewDocument,
   downloadDocument,
   getFeaturedDocuments,
   getLatestDocuments,

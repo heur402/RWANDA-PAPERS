@@ -1,5 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { loginAdmin as loginAdminAPI, signupAdmin as signupAdminAPI } from '../api/admin.js'
+import {
+  loginAdmin as loginAdminAPI,
+  signupAdmin as signupAdminAPI,
+  updateAdminProfile as updateAdminProfileAPI,
+} from '../api/admin.js'
 
 const AuthContext = createContext()
 
@@ -42,8 +46,15 @@ export const AuthProvider = ({ children }) => {
     setAdmin(null)
   }
 
+  // Update name/email in state + localStorage after profile save
+  const updateProfile = (updatedAdmin) => {
+    const merged = { ...admin, ...updatedAdmin }
+    localStorage.setItem('rp_admin', JSON.stringify(merged))
+    setAdmin(merged)
+  }
+
   return (
-    <AuthContext.Provider value={{ admin, loading, login, signup, logout, isAuthenticated: !!admin }}>
+    <AuthContext.Provider value={{ admin, loading, login, signup, logout, updateProfile, isAuthenticated: !!admin }}>
       {children}
     </AuthContext.Provider>
   )

@@ -241,6 +241,119 @@ const editDocument = async (req, res, next) => {
   }
 };
 
+// @desc    Admin directly uploads a document (auto-approved)
+// @route   POST /api/admin/documents/upload
+// @access  Private
+const adminUploadDocument = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Please upload a file' });
+    }
+
+    const { title, description, subject, category, year } = req.body;
+
+    if (!title || !subject || !category || !year) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title, subject, category and year are required',
+      });
+    }
+
+    const path = require('path');
+    const ext = path.extname(req.file.originalname).replace('.', '').toLowerCase();
+    const fileType = ext === 'pdf' ? 'pdf' : 'docx';
+
+    const document = await Document.create({
+      title,
+      description: description || '',
+      subject,
+      category,
+      year: Number(year),
+      fileUrl: `/uploads/${req.file.filename}`,
+      fileType,
+      contributorName: req.admin.name,
+      status: 'approved', // admin uploads go live immediately
+    });
+
+    const populated = await document.populate('category', 'name');
+
+    res.status(201).json({
+      success: true,
+      message: 'Document uploaded and published successfully.',
+      data: populated,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Update admin profile (name / email)
+// @route   PUT /api/admin/profile
+// @access  Private
+const updateAdminProfile = async (req, res, next) => {
+  try {
+    const { name, email } = req.body;
+
+    if (!name && !email) {
+      return res.status(400).json({ success: false, message: 'Provide name or email to update' });
+    }
+
+    // Check email uniqueness if changing
+    if (email && email !== req.admin.email) {
+      const exists = await Admin.findOne({ email });
+      if (exists) {
+        return res.status(400).json({ success: false, message: 'Email already in use by another account' });
+      }
+    }
+
+    const updates = {};
+    if (name) updates.name = name.trim();
+    if (email) updates.email = email.toLowerCase().trim();
+
+    const updated = await Admin.findByIdAndUpdate(req.admin._id, updates, {
+      new: true,
+      runValidators: true,
+    });
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      admin: { id: updated._id, name: updated.name, email: updated.email, role: updated.role },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Change admin password
+// @route   PUT /api/admin/password
+// @access  Private
+const changeAdminPassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+    }
+
+    const admin = await Admin.findById(req.admin._id).select('+password');
+    if (!(await admin.matchPassword(currentPassword))) {
+      return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+    admin.password = newPassword; // pre-save hook hashes it
+    await admin.save();
+
+    res.json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Get current admin profile
 // @route   GET /api/admin/me
 // @access  Private
@@ -261,5 +374,8 @@ module.exports = {
   rejectDocument,
   deleteDocument,
   editDocument,
+  adminUploadDocument,
+  updateAdminProfile,
+  changeAdminPassword,
   getAdminProfile,
 };
