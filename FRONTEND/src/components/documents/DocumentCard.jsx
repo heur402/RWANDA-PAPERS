@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { FileText, Download, Calendar, Tag, User, Eye } from 'lucide-react'
+import { FileText, Download, Calendar, Tag, User, Eye, Bookmark } from 'lucide-react'
+import useSavedDocs from '../../hooks/useSavedDocs.js'
 
 // ── pdfjs CDN loader (shared singleton) ──────────────────────────────────────
 const PDFJS_VERSION = '4.4.168'
@@ -130,6 +131,14 @@ const DocxCardThumb = ({ title }) => (
 // ── Card ──────────────────────────────────────────────────────────────────────
 const DocumentCard = ({ document }) => {
   const { _id, title, subject, category, year, downloads, contributorName, fileType } = document
+  const { save, unsave, isSaved } = useSavedDocs()
+  const saved = isSaved(_id)
+
+  const toggleSave = (e) => {
+    e.preventDefault() // don't navigate
+    e.stopPropagation()
+    saved ? unsave(_id) : save(document)
+  }
 
   return (
     <Link
@@ -195,10 +204,25 @@ const DocumentCard = ({ document }) => {
           </span>
         </div>
 
-        {/* Downloads */}
-        <div className="flex items-center gap-1 flex-shrink-0 text-xs text-gray-400">
-          <Download className="w-3 h-3" />
-          <span>{downloads?.toLocaleString() ?? 0}</span>
+        {/* Downloads + Save */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1 text-xs text-gray-400">
+            <Download className="w-3 h-3" />
+            <span>{downloads?.toLocaleString() ?? 0}</span>
+          </div>
+          <button
+            onClick={toggleSave}
+            className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full transition-all duration-200 ${
+              saved
+                ? 'bg-primary-100 text-primary-700'
+                : 'bg-gray-100 text-gray-500 hover:bg-primary-100 hover:text-primary-700'
+            }`}
+            title={saved ? 'Remove from saved' : 'Save document'}
+            aria-label={saved ? 'Unsave' : 'Save'}
+          >
+            <Bookmark className={`w-3 h-3 ${saved ? 'fill-current' : ''}`} />
+            <span>{saved ? 'Saved' : 'Save'}</span>
+          </button>
         </div>
       </div>
 

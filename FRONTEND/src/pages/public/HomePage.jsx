@@ -1,15 +1,18 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  Search, BookOpen, ArrowRight, TrendingUp, Clock,
+  Search, BookOpen, ArrowRight,
   GraduationCap, School, Wrench, FileText, ClipboardList,
-  BookMarked, PenTool, Layers, FlaskConical, ChevronLeft, ChevronRight,
+  BookMarked, PenTool, Layers, FlaskConical, Bookmark,
 } from 'lucide-react'
-import { getFeaturedDocuments, getLatestDocuments } from '../../api/documents.js'
+import { getDocuments } from '../../api/documents.js'
 import { getCategories } from '../../api/categories.js'
 import DocumentCard from '../../components/documents/DocumentCard.jsx'
 import Spinner from '../../components/common/Spinner.jsx'
+import ScrollRow from '../../components/common/ScrollRow.jsx'
+import useSavedDocs from '../../hooks/useSavedDocs.js'
 
+// ── Category icon + colour maps ───────────────────────────────────────────────
 const categoryIcons = {
   'Primary School': School,
   'Secondary School': GraduationCap,
@@ -21,7 +24,6 @@ const categoryIcons = {
   'Modules': Layers,
   'Research Papers': FlaskConical,
 }
-
 const categoryColors = [
   'bg-blue-50 text-blue-600',
   'bg-green-50 text-green-600',
@@ -34,38 +36,73 @@ const categoryColors = [
   'bg-yellow-50 text-yellow-600',
 ]
 
+// ── Single category row using smart ScrollRow ────────────────────────────────
+const CategoryRow = ({ category, documents, colorClass }) => {
+  const Icon = categoryIcons[category.name] || FileText
+  return (
+    <div className="mb-12">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className={`w-9 h-9 rounded-xl ${colorClass} flex items-center justify-center flex-shrink-0`}>
+            <Icon className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">{category.name}</h3>
+            <p className="text-xs text-gray-400">{documents.length} recent upload{documents.length !== 1 ? 's' : ''}</p>
+          </div>
+        </div>
+        <Link to={`/documents?category=${category._id}`}
+          className="flex items-center gap-1 text-sm text-primary-600 font-medium hover:text-primary-700 flex-shrink-0">
+          View all <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+      <ScrollRow>
+        {documents.map((doc) => (
+          <div key={doc._id} data-card className="flex-shrink-0 snap-start w-[48vw] sm:w-56 md:w-60 lg:w-64">
+            <DocumentCard document={doc} />
+          </div>
+        ))}
+      </ScrollRow>
+    </div>
+  )
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 const HomePage = () => {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
-  const [featured, setFeatured] = useState([])
-  const [latest, setLatest] = useState([])
   const [categories, setCategories] = useState([])
-  const [loadingFeatured, setLoadingFeatured] = useState(true)
-  const [loadingLatest, setLoadingLatest] = useState(true)
+  const [categoryDocs, setCategoryDocs] = useState({})
   const [loadingCategories, setLoadingCategories] = useState(true)
-
-  const featuredScrollRef = useRef(null)
-  const latestScrollRef   = useRef(null)
-
-  const scrollRow = (ref, dir) => {
-    if (!ref.current) return
-    const card = ref.current.querySelector('[data-card]')
-    const w = card?.offsetWidth || 180
-    ref.current.scrollBy({ left: dir * (w + 12), behavior: 'smooth' })
-  }
+  const [loadingDocs, setLoadingDocs] = useState(true)
+  const { saved } = useSavedDocs()
 
   useEffect(() => {
-    getFeaturedDocuments()
-      .then((res) => setFeatured(res.data.data))
-      .finally(() => setLoadingFeatured(false))
-
-    getLatestDocuments()
-      .then((res) => setLatest(res.data.data))
-      .finally(() => setLoadingLatest(false))
-
     getCategories()
-      .then((res) => setCategories(res.data.data))
-      .finally(() => setLoadingCategories(false))
+      .then((res) => {
+        const cats = res.data.data
+        setCategories(cats)
+        setLoadingCategories(false)
+
+        // Fetch latest 10 docs per category in parallel
+        return Promise.all(
+          cats.map((cat) =>
+            getDocuments({ category: cat._id, limit: 10, page: 1 })
+              .then((r) => ({ id: cat._id, docs: r.data.data }))
+              .catch(() => ({ id: cat._id, docs: [] }))
+          )
+        )
+      })
+      .then((results) => {
+        const map = {}
+        results.forEach(({ id, docs }) => { map[id] = docs })
+        setCategoryDocs(map)
+        setLoadingDocs(false)
+      })
+      .catch(() => {
+        setLoadingCategories(false)
+        setLoadingDocs(false)
+      })
   }, [])
 
   const handleSearch = (e) => {
@@ -75,9 +112,14 @@ const HomePage = () => {
     }
   }
 
+  // Only show categories that have at least one doc
+  const activeCategories = categories.filter(
+    (cat) => categoryDocs[cat._id]?.length > 0
+  )
+
   return (
     <div>
-      {/* ── Hero ── */}
+      {/* ── Hero ─────────────────────────────────────────────────────────────── */}
       <section className="bg-gradient-to-br from-primary-700 via-primary-600 to-primary-800 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-28">
           <div className="text-center max-w-3xl mx-auto">
@@ -128,7 +170,35 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* ── Categories ── */}
+      {/* ── Saved Documents (shown only when user has saved some) ───────────── */}
+      {saved.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-0">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-primary-50 rounded-xl flex items-center justify-center">
+                <Bookmark className="w-5 h-5 text-primary-600 fill-primary-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Saved Documents</h2>
+                <p className="text-xs text-gray-400">{saved.length} saved</p>
+              </div>
+            </div>
+            <Link to="/saved" className="text-sm text-primary-600 font-medium hover:text-primary-700 flex items-center gap-1">
+              View all <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <ScrollRow>
+            {saved.map((doc) => (
+              <div key={doc._id} data-card className="flex-shrink-0 snap-start w-[48vw] sm:w-56 md:w-60 lg:w-64">
+                <DocumentCard document={doc} />
+              </div>
+            ))}
+          </ScrollRow>
+        </section>
+      )}
+
+      {/* ── Browse Categories ─────────────────────────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -168,104 +238,25 @@ const HomePage = () => {
         )}
       </section>
 
-      {/* ── Most Downloaded ── */}
+      {/* ── Latest Uploads by Category ────────────────────────────────────────── */}
       <section className="bg-gray-50 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <div className="flex items-center gap-2 text-primary-600 font-medium text-sm mb-1">
-                <TrendingUp className="w-4 h-4" /> Most Popular
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Top Downloaded Documents</h2>
-            </div>
-            <Link to="/documents" className="hidden sm:flex items-center gap-1.5 text-primary-600 font-medium hover:text-primary-700 text-sm">
-              View all <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
 
-          {loadingFeatured ? (
+          {loadingDocs ? (
             <Spinner />
-          ) : featured.length === 0 ? (
+          ) : activeCategories.length === 0 ? (
             <p className="text-gray-500 text-center py-10">No documents yet.</p>
           ) : (
-            <>
-              {/* Mobile: horizontal snap scroll */}
-              <div className="sm:hidden relative">
-                <button onClick={() => scrollRow(featuredScrollRef, -1)} aria-label="Scroll left"
-                  className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 w-7 h-7 bg-white shadow-md rounded-full flex items-center justify-center">
-                  <ChevronLeft className="w-4 h-4 text-gray-600" />
-                </button>
-                <div ref={featuredScrollRef} className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 px-1"
-                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                  {featured.slice(0, 8).map((doc) => (
-                    <div key={doc._id} data-card className="flex-shrink-0 w-[48vw] snap-start">
-                      <DocumentCard document={doc} />
-                    </div>
-                  ))}
-                </div>
-                <button onClick={() => scrollRow(featuredScrollRef, 1)} aria-label="Scroll right"
-                  className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 w-7 h-7 bg-white shadow-md rounded-full flex items-center justify-center">
-                  <ChevronRight className="w-4 h-4 text-gray-600" />
-                </button>
-              </div>
-              {/* Desktop: grid */}
-              <div className="hidden sm:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                {featured.slice(0, 8).map((doc) => (
-                  <DocumentCard key={doc._id} document={doc} />
-                ))}
-              </div>
-            </>
+            activeCategories.map((cat, idx) => (
+              <CategoryRow
+                key={cat._id}
+                category={cat}
+                documents={categoryDocs[cat._id]}
+                colorClass={categoryColors[idx % categoryColors.length]}
+              />
+            ))
           )}
         </div>
-      </section>
-
-      {/* ── Latest Uploads ── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <div className="flex items-center gap-2 text-green-600 font-medium text-sm mb-1">
-              <Clock className="w-4 h-4" /> Recently Added
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Latest Uploads</h2>
-          </div>
-          <Link to="/documents" className="hidden sm:flex items-center gap-1.5 text-primary-600 font-medium hover:text-primary-700 text-sm">
-            View all <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-
-        {loadingLatest ? (
-          <Spinner />
-        ) : latest.length === 0 ? (
-          <p className="text-gray-500 text-center py-10">No documents yet.</p>
-        ) : (
-          <>
-            {/* Mobile: horizontal snap scroll */}
-            <div className="sm:hidden relative">
-              <button onClick={() => scrollRow(latestScrollRef, -1)} aria-label="Scroll left"
-                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 w-7 h-7 bg-white shadow-md rounded-full flex items-center justify-center">
-                <ChevronLeft className="w-4 h-4 text-gray-600" />
-              </button>
-              <div ref={latestScrollRef} className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 px-1"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                {latest.map((doc) => (
-                  <div key={doc._id} data-card className="flex-shrink-0 w-[48vw] snap-start">
-                    <DocumentCard document={doc} />
-                  </div>
-                ))}
-              </div>
-              <button onClick={() => scrollRow(latestScrollRef, 1)} aria-label="Scroll right"
-                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 w-7 h-7 bg-white shadow-md rounded-full flex items-center justify-center">
-                <ChevronRight className="w-4 h-4 text-gray-600" />
-              </button>
-            </div>
-            {/* Desktop: grid */}
-            <div className="hidden sm:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {latest.map((doc) => (
-                <DocumentCard key={doc._id} document={doc} />
-              ))}
-            </div>
-          </>
-        )}
       </section>
     </div>
   )

@@ -36,13 +36,8 @@ const UploadPage = () => {
     setFileError('')
     if (!selected) return setFile(null)
 
-    const allowed = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    ]
-    if (!allowed.includes(selected.type)) {
-      setFileError('Only PDF and DOCX files are allowed.')
+    if (selected.type !== 'application/pdf') {
+      setFileError('Only PDF files are accepted.')
       return setFile(null)
     }
     if (selected.size > 20 * 1024 * 1024) {
@@ -235,7 +230,7 @@ const UploadPage = () => {
                   : 'border-gray-300 hover:border-primary-400 hover:bg-primary-50'
               }`}
             >
-              <input id="file" type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} className="hidden" />
+              <input id="file" type="file" accept=".pdf" onChange={handleFileChange} className="hidden" />
               <label htmlFor="file" className="cursor-pointer block">
                 <FileText className={`w-10 h-10 mx-auto mb-2 ${file ? 'text-green-500' : 'text-gray-400'}`} />
                 {file ? (
@@ -246,7 +241,7 @@ const UploadPage = () => {
                 ) : (
                   <>
                     <p className="font-medium text-gray-700">Click to select a file</p>
-                    <p className="text-xs text-gray-500 mt-1">PDF or DOCX, max 20MB</p>
+                    <p className="text-xs text-gray-500 mt-1">PDF only, max 20MB</p>
                   </>
                 )}
               </label>

@@ -9,6 +9,7 @@ import HomePage from './pages/public/HomePage.jsx'
 import DocumentsPage from './pages/public/DocumentsPage.jsx'
 import DocumentDetailPage from './pages/public/DocumentDetailPage.jsx'
 import UploadPage from './pages/public/UploadPage.jsx'
+import SavedPage from './pages/public/SavedPage.jsx'
 import CategoryPage from './pages/public/CategoryPage.jsx'
 
 // Admin pages
@@ -37,6 +38,7 @@ function App() {
             <Route path="/documents" element={<DocumentsPage />} />
             <Route path="/documents/:id" element={<DocumentDetailPage />} />
             <Route path="/upload" element={<UploadPage />} />
+            <Route path="/saved" element={<SavedPage />} />
             <Route path="/categories/:id" element={<CategoryPage />} />
           </Route>
 
