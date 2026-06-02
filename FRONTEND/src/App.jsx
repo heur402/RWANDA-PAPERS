@@ -16,6 +16,7 @@ import AdminLoginPage from './pages/admin/AdminLoginPage.jsx'
 import AdminDashboard from './pages/admin/AdminDashboard.jsx'
 import AdminDocuments from './pages/admin/AdminDocuments.jsx'
 import AdminCategories from './pages/admin/AdminCategories.jsx'
+import AdminCategoryDocuments from './pages/admin/AdminCategoryDocuments.jsx'
 import AdminUpload from './pages/admin/AdminUpload.jsx'
 import AdminProfile from './pages/admin/AdminProfile.jsx'
 
@@ -48,6 +49,7 @@ function App() {
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/documents" element={<AdminDocuments />} />
               <Route path="/admin/categories" element={<AdminCategories />} />
+              <Route path="/admin/categories/:id" element={<AdminCategoryDocuments />} />
               <Route path="/admin/upload" element={<AdminUpload />} />
               <Route path="/admin/profile" element={<AdminProfile />} />
             </Route>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'react-toastify'
-import { Plus, Edit, Trash2, X, Tag } from 'lucide-react'
+import { Plus, Edit, Trash2, X, Tag, ExternalLink, FileText } from 'lucide-react'
 import { getCategories, createCategory, updateCategory, deleteCategory } from '../../api/categories.js'
 import Spinner from '../../components/common/Spinner.jsx'
 
@@ -14,12 +15,8 @@ const CategoryModal = ({ category, onSave, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
-    try {
-      await onSave(form)
-      onClose()
-    } finally {
-      setSaving(false)
-    }
+    try { await onSave(form); onClose() }
+    finally { setSaving(false) }
   }
 
   return (
@@ -34,21 +31,11 @@ const CategoryModal = ({ category, onSave, onClose }) => {
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="label">Name *</label>
-            <input
-              className="input" required
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="e.g. Secondary School"
-            />
+            <input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Secondary School" />
           </div>
           <div>
             <label className="label">Description</label>
-            <textarea
-              className="input resize-none" rows={3}
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              placeholder="Brief description..."
-            />
+            <textarea className="input resize-none" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Brief description..." />
           </div>
           <div className="flex gap-3 justify-end">
             <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
@@ -83,13 +70,8 @@ const AdminCategories = () => {
 
   const handleSave = async (form) => {
     try {
-      if (modal === 'create') {
-        await createCategory(form)
-        toast.success('Category created')
-      } else {
-        await updateCategory(modal._id, form)
-        toast.success('Category updated')
-      }
+      if (modal === 'create') { await createCategory(form); toast.success('Category created') }
+      else { await updateCategory(modal._id, form); toast.success('Category updated') }
       fetchCategories()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Operation failed')
@@ -99,23 +81,14 @@ const AdminCategories = () => {
 
   const handleDelete = async (id, name) => {
     if (!window.confirm(`Delete category "${name}"?`)) return
-    try {
-      await deleteCategory(id)
-      toast.success('Category deleted')
-      fetchCategories()
-    } catch {
-      toast.error('Failed to delete category')
-    }
+    try { await deleteCategory(id); toast.success('Category deleted'); fetchCategories() }
+    catch { toast.error('Failed to delete category') }
   }
 
   return (
     <div className="space-y-6">
       {modal && (
-        <CategoryModal
-          category={modal === 'create' ? null : modal}
-          onSave={handleSave}
-          onClose={() => setModal(null)}
-        />
+        <CategoryModal category={modal === 'create' ? null : modal} onSave={handleSave} onClose={() => setModal(null)} />
       )}
 
       <div className="flex items-center justify-between">
@@ -124,8 +97,7 @@ const AdminCategories = () => {
           <p className="text-sm text-gray-500 mt-1">{categories.length} categories</p>
         </div>
         <button onClick={() => setModal('create')} className="btn-primary">
-          <Plus className="w-4 h-4" />
-          New Category
+          <Plus className="w-4 h-4" /> New Category
         </button>
       </div>
 
@@ -140,7 +112,7 @@ const AdminCategories = () => {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {categories.map((cat) => (
-            <div key={cat._id} className="card p-5 flex flex-col">
+            <div key={cat._id} className="card p-5 flex flex-col hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between mb-3">
                 <div className="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center">
                   <Tag className="w-5 h-5 text-primary-600" />
@@ -154,10 +126,31 @@ const AdminCategories = () => {
                   </button>
                 </div>
               </div>
-              <h3 className="font-semibold text-gray-900 mb-1">{cat.name}</h3>
+
+              {/* Name — links to admin category documents page */}
+              <Link
+                to={`/admin/categories/${cat._id}`}
+                className="font-semibold text-gray-900 hover:text-primary-600 transition-colors mb-1 group flex items-center gap-1.5"
+              >
+                {cat.name}
+              </Link>
+
               {cat.description && <p className="text-sm text-gray-500 flex-1">{cat.description}</p>}
-              <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-400">
-                {cat.documentCount ?? 0} document{cat.documentCount !== 1 ? 's' : ''}
+
+              <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-xs text-gray-400 flex items-center gap-1">
+                  <FileText className="w-3.5 h-3.5" />
+                  {cat.documentCount ?? 0} document{cat.documentCount !== 1 ? 's' : ''}
+                </span>
+                {/* External link to public site */}
+                <Link
+                  to={`/documents?category=${cat._id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
+                >
+                  <ExternalLink className="w-3 h-3" /> Browse →
+                </Link>
               </div>
             </div>
           ))}

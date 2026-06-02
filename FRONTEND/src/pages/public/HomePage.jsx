@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  Search, Download, BookOpen, ArrowRight, TrendingUp, Clock,
+  Search, BookOpen, ArrowRight, TrendingUp, Clock,
   GraduationCap, School, Wrench, FileText, ClipboardList,
-  BookMarked, PenTool, Layers, FlaskConical,
+  BookMarked, PenTool, Layers, FlaskConical, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { getFeaturedDocuments, getLatestDocuments } from '../../api/documents.js'
 import { getCategories } from '../../api/categories.js'
@@ -43,6 +43,16 @@ const HomePage = () => {
   const [loadingFeatured, setLoadingFeatured] = useState(true)
   const [loadingLatest, setLoadingLatest] = useState(true)
   const [loadingCategories, setLoadingCategories] = useState(true)
+
+  const featuredScrollRef = useRef(null)
+  const latestScrollRef   = useRef(null)
+
+  const scrollRow = (ref, dir) => {
+    if (!ref.current) return
+    const card = ref.current.querySelector('[data-card]')
+    const w = card?.offsetWidth || 180
+    ref.current.scrollBy({ left: dir * (w + 12), behavior: 'smooth' })
+  }
 
   useEffect(() => {
     getFeaturedDocuments()
@@ -178,11 +188,33 @@ const HomePage = () => {
           ) : featured.length === 0 ? (
             <p className="text-gray-500 text-center py-10">No documents yet.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {featured.slice(0, 8).map((doc) => (
-                <DocumentCard key={doc._id} document={doc} />
-              ))}
-            </div>
+            <>
+              {/* Mobile: horizontal snap scroll */}
+              <div className="sm:hidden relative">
+                <button onClick={() => scrollRow(featuredScrollRef, -1)} aria-label="Scroll left"
+                  className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 w-7 h-7 bg-white shadow-md rounded-full flex items-center justify-center">
+                  <ChevronLeft className="w-4 h-4 text-gray-600" />
+                </button>
+                <div ref={featuredScrollRef} className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 px-1"
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                  {featured.slice(0, 8).map((doc) => (
+                    <div key={doc._id} data-card className="flex-shrink-0 w-[48vw] snap-start">
+                      <DocumentCard document={doc} />
+                    </div>
+                  ))}
+                </div>
+                <button onClick={() => scrollRow(featuredScrollRef, 1)} aria-label="Scroll right"
+                  className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 w-7 h-7 bg-white shadow-md rounded-full flex items-center justify-center">
+                  <ChevronRight className="w-4 h-4 text-gray-600" />
+                </button>
+              </div>
+              {/* Desktop: grid */}
+              <div className="hidden sm:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                {featured.slice(0, 8).map((doc) => (
+                  <DocumentCard key={doc._id} document={doc} />
+                ))}
+              </div>
+            </>
           )}
         </div>
       </section>
@@ -206,30 +238,34 @@ const HomePage = () => {
         ) : latest.length === 0 ? (
           <p className="text-gray-500 text-center py-10">No documents yet.</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {latest.map((doc) => (
-              <DocumentCard key={doc._id} document={doc} />
-            ))}
-          </div>
+          <>
+            {/* Mobile: horizontal snap scroll */}
+            <div className="sm:hidden relative">
+              <button onClick={() => scrollRow(latestScrollRef, -1)} aria-label="Scroll left"
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 w-7 h-7 bg-white shadow-md rounded-full flex items-center justify-center">
+                <ChevronLeft className="w-4 h-4 text-gray-600" />
+              </button>
+              <div ref={latestScrollRef} className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 px-1"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                {latest.map((doc) => (
+                  <div key={doc._id} data-card className="flex-shrink-0 w-[48vw] snap-start">
+                    <DocumentCard document={doc} />
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => scrollRow(latestScrollRef, 1)} aria-label="Scroll right"
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 w-7 h-7 bg-white shadow-md rounded-full flex items-center justify-center">
+                <ChevronRight className="w-4 h-4 text-gray-600" />
+              </button>
+            </div>
+            {/* Desktop: grid */}
+            <div className="hidden sm:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              {latest.map((doc) => (
+                <DocumentCard key={doc._id} document={doc} />
+              ))}
+            </div>
+          </>
         )}
-      </section>
-
-      {/* ── CTA ── */}
-      <section className="bg-primary-700 text-white py-16">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold mb-4">Have Resources to Share?</h2>
-          <p className="text-primary-200 text-lg mb-8">
-            Help fellow students by uploading past papers, notes, or assignments.
-            Your contribution will be reviewed and published.
-          </p>
-          <Link
-            to="/upload"
-            className="inline-flex items-center gap-2 px-8 py-4 bg-yellow-400 text-gray-900 font-semibold rounded-xl hover:bg-yellow-300 transition-colors shadow-lg"
-          >
-            <Download className="w-5 h-5 rotate-180" />
-            Upload a Document
-          </Link>
-        </div>
       </section>
     </div>
   )

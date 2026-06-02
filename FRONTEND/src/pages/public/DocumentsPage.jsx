@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { FileSearch } from 'lucide-react'
+import { FileSearch, ChevronLeft, ChevronRight } from 'lucide-react'
 import { getDocuments } from '../../api/documents.js'
 import { getCategories } from '../../api/categories.js'
 import DocumentCard from '../../components/documents/DocumentCard.jsx'
@@ -15,12 +15,13 @@ const DocumentsPage = () => {
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const scrollRef = useRef(null)
 
-  const currentPage = Number(searchParams.get('page')) || 1
-  const searchQuery = searchParams.get('search') || ''
+  const currentPage    = Number(searchParams.get('page')) || 1
+  const searchQuery    = searchParams.get('search') || ''
   const categoryFilter = searchParams.get('category') || ''
-  const yearFilter = searchParams.get('year') || ''
-  const subjectFilter = searchParams.get('subject') || ''
+  const yearFilter     = searchParams.get('year') || ''
+  const subjectFilter  = searchParams.get('subject') || ''
 
   useEffect(() => {
     getCategories().then((res) => setCategories(res.data.data)).catch(() => {})
@@ -32,10 +33,10 @@ const DocumentsPage = () => {
       setError(null)
       try {
         const params = { page: currentPage, limit: 12 }
-        if (searchQuery) params.search = searchQuery
+        if (searchQuery)    params.search   = searchQuery
         if (categoryFilter) params.category = categoryFilter
-        if (yearFilter) params.year = yearFilter
-        if (subjectFilter) params.subject = subjectFilter
+        if (yearFilter)     params.year     = yearFilter
+        if (subjectFilter)  params.subject  = subjectFilter
 
         const { data } = await getDocuments(params)
         setDocuments(data.data)
@@ -52,10 +53,10 @@ const DocumentsPage = () => {
   const handleSearch = useCallback(
     (filters) => {
       const newParams = new URLSearchParams()
-      if (filters.search) newParams.set('search', filters.search)
+      if (filters.search)   newParams.set('search',   filters.search)
       if (filters.category) newParams.set('category', filters.category)
-      if (filters.year) newParams.set('year', filters.year)
-      if (filters.subject) newParams.set('subject', filters.subject)
+      if (filters.year)     newParams.set('year',     filters.year)
+      if (filters.subject)  newParams.set('subject',  filters.subject)
       newParams.set('page', '1')
       setSearchParams(newParams)
     },
@@ -69,6 +70,13 @@ const DocumentsPage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  const scrollCards = (dir) => {
+    if (!scrollRef.current) return
+    const card = scrollRef.current.querySelector('[data-card]')
+    const cardWidth = card?.offsetWidth || 280
+    scrollRef.current.scrollBy({ left: dir * (cardWidth + 16), behavior: 'smooth' })
+  }
+
   const activeCategory = categories.find((c) => c._id === categoryFilter)
 
   return (
@@ -78,9 +86,7 @@ const DocumentsPage = () => {
           {activeCategory ? activeCategory.name : 'All Documents'}
         </h1>
         <p className="text-gray-500">
-          {loading
-            ? 'Loading...'
-            : `${pagination.total.toLocaleString()} document${pagination.total !== 1 ? 's' : ''} found`}
+          {loading ? 'Loading...' : `${pagination.total.toLocaleString()} document${pagination.total !== 1 ? 's' : ''} found`}
         </p>
       </div>
 
@@ -88,12 +94,7 @@ const DocumentsPage = () => {
         <SearchBar
           onSearch={handleSearch}
           categories={categories}
-          initialValues={{
-            search: searchQuery,
-            category: categoryFilter,
-            year: yearFilter,
-            subject: subjectFilter,
-          }}
+          initialValues={{ search: searchQuery, category: categoryFilter, year: yearFilter, subject: subjectFilter }}
         />
       </div>
 
@@ -109,11 +110,48 @@ const DocumentsPage = () => {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          {/* ── Mobile: horizontal snap scroll with chevrons ── */}
+          <div className="sm:hidden relative">
+            <button
+              onClick={() => scrollCards(-1)}
+              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10
+                         w-8 h-8 bg-white shadow-md rounded-full flex items-center justify-center
+                         hover:bg-gray-50 transition-colors"
+              aria-label="Scroll left"
+            >
+              <ChevronLeft className="w-4 h-4 text-gray-600" />
+            </button>
+
+            <div
+              ref={scrollRef}
+              className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 px-1"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+              {documents.map((doc) => (
+                <div key={doc._id} data-card className="flex-shrink-0 w-[48vw] snap-start">
+                  <DocumentCard document={doc} />
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => scrollCards(1)}
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10
+                         w-8 h-8 bg-white shadow-md rounded-full flex items-center justify-center
+                         hover:bg-gray-50 transition-colors"
+              aria-label="Scroll right"
+            >
+              <ChevronRight className="w-4 h-4 text-gray-600" />
+            </button>
+          </div>
+
+          {/* ── Desktop: grid ── */}
+          <div className="hidden sm:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {documents.map((doc) => (
               <DocumentCard key={doc._id} document={doc} />
             ))}
           </div>
+
           <Pagination
             currentPage={pagination.page}
             totalPages={pagination.pages}

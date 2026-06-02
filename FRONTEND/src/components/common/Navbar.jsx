@@ -1,11 +1,26 @@
-import React, { useState } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { BookOpen, Search, Menu, X, Upload } from 'lucide-react'
 
 const Navbar = () => {
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuOpen, setMenuOpen]   = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const navigate = useNavigate()
+  const [scrolled, setScrolled]   = useState(false)
+  const navigate  = useNavigate()
+  const location  = useLocation()
+
+  // Track scroll position
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 400)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // On /upload the search is always visible.
+  // On / it slides in after scrolling 400px.
+  // On /documents pages it is hidden (they have their own SearchBar).
+  const onDocuments = location.pathname === '/documents' || location.pathname.startsWith('/documents/')
+  const showSearch = !onDocuments && (location.pathname === '/upload' || scrolled)
 
   const handleSearch = (e) => {
     e.preventDefault()
@@ -25,16 +40,22 @@ const Navbar = () => {
     <header className="bg-white shadow-sm sticky top-0 z-30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-4">
+
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 flex-shrink-0">
             <div className="w-9 h-9 bg-primary-600 rounded-lg flex items-center justify-center">
               <BookOpen className="w-5 h-5 text-white" />
             </div>
-            <span className="font-bold text-xl text-primary-700 hidden sm:block">Rwanda Papers</span>
+            <span className="font-bold text-xl text-primary-700 block">Rwanda Papers</span>
           </Link>
 
-          {/* Desktop search */}
-          <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-lg">
+          {/* Desktop search — slides in on scroll */}
+          <form
+            onSubmit={handleSearch}
+            className={`hidden md:flex flex-1 transition-all duration-300 overflow-hidden ${
+              showSearch ? 'opacity-100 max-w-lg' : 'opacity-0 max-w-0 pointer-events-none'
+            }`}
+          >
             <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
@@ -56,9 +77,7 @@ const Navbar = () => {
                 end={end}
                 className={({ isActive }) =>
                   `px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'text-gray-600 hover:text-primary-700 hover:bg-gray-50'
+                    isActive ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:text-primary-700 hover:bg-gray-50'
                   }`
                 }
               >
@@ -74,7 +93,7 @@ const Navbar = () => {
             </Link>
           </nav>
 
-          {/* Mobile menu button */}
+          {/* Mobile menu toggle */}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="md:hidden p-2 rounded-lg hover:bg-gray-100"
@@ -84,7 +103,7 @@ const Navbar = () => {
           </button>
         </div>
 
-        {/* Mobile menu */}
+        {/* Mobile dropdown */}
         {menuOpen && (
           <div className="md:hidden border-t border-gray-100 pb-4">
             <form onSubmit={handleSearch} className="px-2 pt-3 pb-2">
@@ -115,6 +134,13 @@ const Navbar = () => {
                   {label}
                 </NavLink>
               ))}
+              <Link
+                to="/upload"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-1.5 px-4 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-lg"
+              >
+                <Upload className="w-4 h-4" /> Contribute
+              </Link>
             </nav>
           </div>
         )}
