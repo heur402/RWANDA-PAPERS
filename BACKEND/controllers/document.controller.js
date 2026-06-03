@@ -1,25 +1,42 @@
-const Document  = require('../models/Document.model');
-const Download  = require('../models/Download.model');
-const https     = require('https');
-const http      = require('http');
+const Document   = require('../models/Document.model');
+const Download   = require('../models/Download.model');
+const cloudinary = require('../config/cloudinary');
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-// Build a "fl_attachment:false" Cloudinary URL so browsers open inline
-// instead of downloading. Works for PDFs.
-function inlineUrl(rawUrl) {
-  if (!rawUrl) return rawUrl;
-  // Cloudinary raw URLs look like:
-  //   https://res.cloudinary.com/<cloud>/raw/upload/v.../rwanda-papers/documents/...
-  // Insert fl_inline transformation flag after /upload/
-  return rawUrl.replace('/upload/', '/upload/fl_inline/');
+/**
+ * Get a short-lived signed download URL for a Cloudinary raw resource.
+ * Works even when the account has strict access mode enabled.
+ */
+function getSignedUrl(publicId, { attachment = false } = {}) {
+  return cloudinary.utils.private_download_url(publicId, 'pdf', {
+    resource_type: 'raw',
+    type:          'upload',
+    expires_at:    Math.floor(Date.now() / 1000) + 3600, // 1 hour
+    attachment,
+  });
 }
 
-// Pipe a remote URL to the response (avoids CORS / IDM interception)
-function proxyUrl(remoteUrl, res, next) {
-  const get = remoteUrl.startsWith('https') ? https.get : http.get;
-  get(remoteUrl, (upstream) => {
-    // Forward content-type and length
+/**
+ * Pipe a remote HTTPS URL through our server response.
+ * Handles redirects and forwards content headers.
+ */
+function proxyUrl(remoteUrl, res, next, depth = 0) {
+  if (depth > 5) return next(new Error('Too many redirects'));
+  const https = require('https');
+  const http  = require('http');
+  const get   = remoteUrl.startsWith('https') ? https.get : http.get;
+
+  get(remoteUrl, { headers: { 'User-Agent': 'Rwanda-Papers-Server/1.0' } }, (upstream) => {
+    if (upstream.statusCode >= 300 && upstream.statusCode < 400 && upstream.headers.location) {
+      upstream.resume();
+      return proxyUrl(upstream.headers.location, res, next, depth + 1);
+    }
+    if (upstream.statusCode !== 200) {
+      upstream.resume();
+      return res.status(upstream.statusCode || 502).json({ success: false, message: 'Could not fetch file from storage' });
+    }
+
     res.setHeader('Content-Type',        upstream.headers['content-type'] || 'application/pdf');
     res.setHeader('Content-Disposition', 'inline');
     res.setHeader('Cache-Control',       'private, max-age=3600');
@@ -88,20 +105,20 @@ const getDocument = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
-// @desc    Preview — proxies the Cloudinary file inline (beats IDM interception)
+// @desc    Preview — proxies via signed Cloudinary URL (no CORS, no IDM, no 401)
 // @route   GET /api/documents/:id/preview
 const previewDocument = async (req, res, next) => {
   try {
     const document = await Document.findOne({
       _id: req.params.id, status: 'approved',
     });
-
     if (!document) {
       return res.status(404).json({ success: false, message: 'Document not found' });
     }
 
-    // Proxy through our server — browser sees /api/... not a .pdf URL
-    proxyUrl(inlineUrl(document.fileUrl), res, next);
+    // Generate a short-lived signed URL then proxy it through our server
+    const signedUrl = getSignedUrl(document.cloudinaryId, { attachment: false });
+    proxyUrl(signedUrl, res, next);
   } catch (error) { next(error); }
 };
 
@@ -121,13 +138,9 @@ const downloadDocument = async (req, res, next) => {
     await Download.create({ documentId: document._id, ipAddress: req.ip || '' });
     await Document.findByIdAndUpdate(document._id, { $inc: { downloads: 1 } });
 
-    // Redirect to Cloudinary with fl_attachment so browser triggers Save-As dialog
-    const downloadCloudinaryUrl = document.fileUrl.replace(
-      '/upload/',
-      `/upload/fl_attachment:${encodeURIComponent(document.title)}/`
-    );
-
-    res.redirect(downloadCloudinaryUrl);
+    // For raw resource type, redirect to the plain Cloudinary URL.
+    // The browser will prompt Save-As because content-type is application/pdf.
+    res.redirect(document.fileUrl);
   } catch (error) { next(error); }
 };
 
