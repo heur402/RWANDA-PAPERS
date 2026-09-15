@@ -142,6 +142,22 @@ const previewDocument = async (req, res, next) => {
         .json({ success: false, message: "Document not found" });
     }
 
+    // Fallback: old local documents have no cloudinaryId — serve from disk
+    if (!document.cloudinaryId) {
+      const path = require("path");
+      const fs = require("fs");
+      // fileUrl is like /uploads/filename.pdf
+      const filename = document.fileUrl.replace(/^\/uploads\//, "");
+      const filePath = path.join(__dirname, "../uploads", filename);
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ success: false, message: "File not found on disk" });
+      }
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", "inline");
+      res.setHeader("Cache-Control", "private, max-age=3600");
+      return fs.createReadStream(filePath).pipe(res);
+    }
+
     // Generate a short-lived signed URL then proxy it through our server
     const signedUrl = getSignedUrl(document.cloudinaryId, {
       attachment: false,
@@ -173,6 +189,20 @@ const downloadDocument = async (req, res, next) => {
       ipAddress: req.ip || "",
     });
     await Document.findByIdAndUpdate(document._id, { $inc: { downloads: 1 } });
+
+    // Fallback for old local documents
+    if (!document.cloudinaryId) {
+      const path = require("path");
+      const fs = require("fs");
+      const filename = document.fileUrl.replace(/^\/uploads\//, "");
+      const filePath = path.join(__dirname, "../uploads", filename);
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ success: false, message: "File not found on disk" });
+      }
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      return fs.createReadStream(filePath).pipe(res);
+    }
 
     // Generate a short-lived signed download URL so private/raw assets work reliably.
     const signedUrl = getSignedUrl(document.cloudinaryId, { attachment: true });
